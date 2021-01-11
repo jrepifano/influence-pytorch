@@ -21,4 +21,4 @@ is faithful to the original model.
 
 
 
-If you have any questions please contact Jacob Epifano ([jrepifano@gmai.com](jrepifano@gmail.com))
+If you have any questions please contact Jacob Epifano ([jrepifano@gmail.com](jrepifano@gmail.com))
