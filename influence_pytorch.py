@@ -2,6 +2,7 @@ import torch
 import random
 import numpy as np
 from torch.autograd import grad
+from imblearn.under_sampling import TomekLinks
 
 
 def hessian_vector_product(ys, xs, v):
@@ -47,8 +48,8 @@ def lissa(train_loss, test_loss, layer_weight, model):
             numpy_est = cur_estimate.detach().cpu().numpy()
             numpy_est = numpy_est.reshape(1, -1)
 
-            if (count % 100 == 0):
-                print("Recursion at depth %s: norm is %.8lf" % (count, np.linalg.norm(np.concatenate(numpy_est))))
+            # if (count % 100 == 0):
+            #     print("Recursion at depth %s: norm is %.8lf" % (count, np.linalg.norm(np.concatenate(numpy_est))))
             count += 1
             diff = abs(np.linalg.norm(np.concatenate(numpy_est)) - prev_norm)
             prev_norm = np.linalg.norm(np.concatenate(numpy_est))
@@ -63,7 +64,7 @@ def lissa(train_loss, test_loss, layer_weight, model):
 
 
 def i_up_params(x_train, y_train, model, layer_weight, n=1, std=0.2,
-                criterion=torch.nn.BCEWithLogitsLoss(), device='cpu'):
+                criterion=torch.nn.BCEWithLogitsLoss(), device='cpu', reduce_space=True):
     """
     Estimate the effect that upweighting a training instance will have on the parameters of the model
     :param x_train: training data, [n_samples, n_feats]
@@ -78,6 +79,7 @@ def i_up_params(x_train, y_train, model, layer_weight, n=1, std=0.2,
     :return: list len training set: H^-1 * gradient of training instance loss with respect to last layer in model
     """
     eqn_1 = []
+    prev_size = x_train.shape[0]
     x_train, y_train = torch.from_numpy(x_train).float(), torch.from_numpy(y_train).float()
     for itr in range(n):
         if n > 1:
@@ -88,6 +90,13 @@ def i_up_params(x_train, y_train, model, layer_weight, n=1, std=0.2,
             x_train = x_train.to(device)
             y_train = y_train.to(device)
             model = model.to(device)
+        if reduce_space == True:
+            number_to_keep = round(prev_size*0.2)
+            reduction_criteria = torch.nn.BCEWithLogitsLoss(reduction='none')
+            train_loss_indiv = reduction_criteria(model(x_train), y_train.view(-1, 1)).detach().cpu().numpy().reshape(-1)
+            instances_to_keep = list(np.argsort(train_loss_indiv)[::-1][:number_to_keep])
+            x_train, y_train = x_train[instances_to_keep], y_train[instances_to_keep]
+            print('Reduced X from {} to {}'.format(prev_size, x_train.detach().cpu().numpy().shape[0]))
         train_loss = criterion(model(x_train), y_train.view(-1, 1))
         for i in range(len(x_train)):
             x = x_train[i]
@@ -97,6 +106,7 @@ def i_up_params(x_train, y_train, model, layer_weight, n=1, std=0.2,
             x_loss = criterion(x_out, y_train[i].view(-1))
             ihvp = lissa(train_loss, x_loss, layer_weight, model)
             eqn_1.append(-ihvp.detach().cpu().numpy())
+            print('Finished {}/{} training instances'.format(i+1, len(x_train)))
     return eqn_1
 
 
