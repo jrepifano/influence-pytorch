@@ -3,7 +3,7 @@ import torch
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from influence_pytorch import i_up_loss, i_pert_loss
+from influence_pytorch import i_up_params, i_up_loss, i_pert_loss
 
 os.environ["CUDA_DEVICE_ORDER"] = 'PCI_BUS_ID'
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
@@ -26,7 +26,7 @@ class Model(torch.nn.Module):
 
 def main():
     device = 'cuda:0'
-    x, y = make_classification(n_samples=1000, n_features=10, n_classes=2)
+    x, y = make_classification(n_samples=100, n_features=10, n_classes=2)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=True)
     scaler = StandardScaler()
     x_train = scaler.fit_transform(x_train)
@@ -45,8 +45,10 @@ def main():
         optimizer.step()
         print('Epoch {}/{}: Training Loss: {:4f}'.format(epoch + 1, no_epochs, loss.item()))
     model.eval()
+    eqn_1 = i_up_params(x_train, y_train, model, model.layer_3.weight, device=device)
     eqn_2 = i_up_loss(x_train, y_train, x_test, y_test, model, model.layer_3.weight, device=device)
     eqn_5 = i_pert_loss(x_train, y_train, x_test, y_test, model, model.layer_3.weight, device=device)
+    print(eqn_1)
     print(eqn_2)
     print(eqn_5)
 

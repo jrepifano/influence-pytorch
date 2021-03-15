@@ -62,6 +62,44 @@ def lissa(train_loss, test_loss, layer_weight, model):
     return ihvp.detach()
 
 
+def i_up_params(x_train, y_train, model, layer_weight, n=1, std=0.2,
+                criterion=torch.nn.BCEWithLogitsLoss(), device='cpu'):
+    """
+    Estimate the effect that upweighting a training instance will have on the parameters of the model
+    :param x_train: training data, [n_samples, n_feats]
+    :param y_train: training labels, [n_samples]
+    :param model: PyTorch model object
+    :param layer_weight: Weight of layer to compute influence at. Koh, Pang 2017 suggest final layer
+    :param n: If you'd like to smooth influence by using an average of the neighborhood increase n, [int]
+              This intuition is from Smilkov, et.al. 2017 (SmoothGrad)
+    :param std: Standard deviation of noise to add to sample during smoothing
+    :param criterion: Some type of Cross-entropy function
+    :param device: Device to compute on. Much faster on cuda devices
+    :return: list len training set: H^-1 * gradient of training instance loss with respect to last layer in model
+    """
+    eqn_1 = []
+    x_train, y_train = torch.from_numpy(x_train).float(), torch.from_numpy(y_train).float()
+    for itr in range(n):
+        if n > 1:
+            np.random.seed(random.randint(0, 10000000))
+            noise = np.random.normal(0, std, x_train.size())
+            x_train = x_train.cpu() + noise  # add noise to test data
+        if 'cuda' in device:
+            x_train = x_train.to(device)
+            y_train = y_train.to(device)
+            model = model.to(device)
+        train_loss = criterion(model(x_train), y_train.view(-1, 1))
+        for i in range(len(x_train)):
+            x = x_train[i]
+            x.requires_grad = True
+            model.zero_grad()
+            x_out = model(x)
+            x_loss = criterion(x_out, y_train[i].view(-1))
+            ihvp = lissa(train_loss, x_loss, layer_weight, model)
+            eqn_1.append(-ihvp.detach().cpu().numpy())
+    return eqn_1
+
+
 def i_up_loss(x_train, y_train, x_test, y_test, model, layer_weight, n=1, std=0.2,
               criterion=torch.nn.BCEWithLogitsLoss(), device='cpu'):
     """
