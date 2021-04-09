@@ -2,7 +2,6 @@ import torch
 import random
 import numpy as np
 from torch.autograd import grad
-from imblearn.under_sampling import TomekLinks
 
 
 def hessian_vector_product(ys, xs, v):
@@ -24,7 +23,7 @@ def hessian_vector_product(ys, xs, v):
 
 def lissa(train_loss, test_loss, layer_weight, model):
     """
-    Estimate Inverse Hessian Vector Product
+    Estimate Inverse Hessian Vector Product. Remove reshape on line 45 if you're using a different criterion
     :param train_loss: train loss (some type of cross-entropy loss), [tensor, with grad]
     :param test_loss: test loss (some type of cross-entopy loss), [tensor, with grad]
     :param layer_weight: weights of the last layer of the model e.g. model.layer_2.weight - suggested by Koh, Pang 2017
